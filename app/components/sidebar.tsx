@@ -1,4 +1,4 @@
-import { NavLink, Form } from "react-router";
+import { NavLink, Form, useLocation } from "react-router";
 import { useState, useEffect } from "react";
 import { cn } from "~/lib/utils";
 import { UserRole } from "~/db/schema";
@@ -47,8 +47,6 @@ interface NavItem {
   to: string;
   icon: React.ReactNode;
   roles: UserRole[] | "all";
-  /** Active only on this exact path, not on paths nested under it. */
-  end?: boolean;
 }
 
 const navItems: NavItem[] = [
@@ -69,7 +67,6 @@ const navItems: NavItem[] = [
     to: "/instructor",
     icon: <GraduationCap className="size-4" />,
     roles: [UserRole.Instructor],
-    end: true,
   },
   {
     label: "Analytics",
@@ -109,12 +106,35 @@ function isVisible(item: NavItem, role: UserRole | null): boolean {
   return item.roles.includes(role);
 }
 
+function matches(pathname: string, to: string): boolean {
+  return pathname === to || pathname.startsWith(`${to}/`);
+}
+
+/**
+ * The most specific nav item for the current path wins, so a nested item
+ * (e.g. /instructor/analytics) does not also light up its parent (/instructor).
+ */
+function activeNavPath(items: NavItem[], pathname: string): string | null {
+  let best: string | null = null;
+  for (const item of items) {
+    if (matches(pathname, item.to) && (!best || item.to.length > best.length)) {
+      best = item.to;
+    }
+  }
+  return best;
+}
+
 export function Sidebar({
   currentUser,
   recentCourses = [],
   isTeamAdmin = false,
 }: SidebarProps) {
   const currentUserRole = currentUser?.role ?? null;
+  const { pathname } = useLocation();
+  const visibleNavItems = navItems.filter((item) =>
+    isVisible(item, currentUserRole)
+  );
+  const activePath = activeNavPath(visibleNavItems, pathname);
   const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
@@ -139,26 +159,23 @@ export function Sidebar({
       </div>
 
       <nav className="flex-1 space-y-1 p-3">
-        {navItems
-          .filter((item) => isVisible(item, currentUserRole))
-          .map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                )
-              }
-            >
-              {item.icon}
-              {item.label}
-            </NavLink>
-          ))}
+        {visibleNavItems.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            className={() =>
+              cn(
+                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                item.to === activePath
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              )
+            }
+          >
+            {item.icon}
+            {item.label}
+          </NavLink>
+        ))}
         {isTeamAdmin && (
           <NavLink
             to="/team"
