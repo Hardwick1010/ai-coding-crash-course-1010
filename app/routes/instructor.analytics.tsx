@@ -65,6 +65,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   return {
     range: range.value,
     revenue: getInstructorRevenue(currentUserId, rangeStart(range)),
+    platformFeePercent: PLATFORM_FEE_PERCENT,
   };
 }
 
@@ -122,7 +123,7 @@ export function HydrateFallback() {
 export default function InstructorAnalytics({
   loaderData,
 }: Route.ComponentProps) {
-  const { range, revenue } = loaderData;
+  const { range, revenue, platformFeePercent } = loaderData;
   const [, setSearchParams] = useSearchParams();
 
   function handleRangeChange(value: string) {
@@ -172,7 +173,7 @@ export default function InstructorAnalytics({
           }.`}
         />
         <MoneyCard
-          label={`Platform fee (${PLATFORM_FEE_PERCENT}%)`}
+          label={`Platform fee (${platformFeePercent}%)`}
           amount={formatMoney(revenue.platformFee)}
           helper="Cadence's cut. Already deducted from your earnings."
         />
