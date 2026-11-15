@@ -1,4 +1,4 @@
-import { Link, data, isRouteErrorResponse } from "react-router";
+import { Link, data, isRouteErrorResponse, useSearchParams } from "react-router";
 import type { Route } from "./+types/instructor.analytics";
 import { getCurrentUserId } from "~/lib/session";
 import { getUserById } from "~/services/userService";
@@ -10,13 +10,44 @@ import { UserRole } from "~/db/schema";
 import { Card, CardContent } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Skeleton } from "~/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
 import { AlertTriangle } from "lucide-react";
 import { cn } from "~/lib/utils";
 
 // ─── Instructor Analytics ───
 // What the instructor's courses have earned: gross revenue, Cadence's platform
-// fee, and the instructor's net earnings. All time for now; the figures and the
-// fee split come from analyticsService.
+// fee, and the instructor's net earnings over a chosen date range. The figures
+// and the fee split come from analyticsService.
+
+// ─── Date range ───
+// Held in the `range` search param. Missing or unknown values mean Last 30 days.
+// The range starts `days` before now (inclusive); All time has no start.
+
+const DATE_RANGES = [
+  { value: "7d", label: "Last 7 days", days: 7 },
+  { value: "30d", label: "Last 30 days", days: 30 },
+  { value: "90d", label: "Last 90 days", days: 90 },
+  { value: "all", label: "All time", days: null },
+] as const;
+
+type DateRange = (typeof DATE_RANGES)[number];
+
+const DEFAULT_RANGE = DATE_RANGES[1];
+
+function parseRange(value: string | null): DateRange {
+  return DATE_RANGES.find((range) => range.value === value) ?? DEFAULT_RANGE;
+}
+
+function rangeStart(range: DateRange, now = new Date()): Date | undefined {
+  if (range.days === null) return undefined;
+  return new Date(now.getTime() - range.days * 24 * 60 * 60 * 1000);
+}
 
 const usd = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -54,7 +85,12 @@ export async function loader({ request }: Route.LoaderArgs) {
     });
   }
 
-  return { revenue: getInstructorRevenue(currentUserId) };
+  const range = parseRange(new URL(request.url).searchParams.get("range"));
+
+  return {
+    range: range.value,
+    revenue: getInstructorRevenue(currentUserId, rangeStart(range)),
+  };
 }
 
 function MoneyCard({
@@ -111,7 +147,15 @@ export function HydrateFallback() {
 export default function InstructorAnalytics({
   loaderData,
 }: Route.ComponentProps) {
-  const { revenue } = loaderData;
+  const { range, revenue } = loaderData;
+  const [, setSearchParams] = useSearchParams();
+
+  function handleRangeChange(value: string) {
+    setSearchParams((params) => {
+      params.set("range", value);
+      return params;
+    });
+  }
 
   return (
     <div className="mx-auto max-w-7xl p-6 lg:p-8">
@@ -123,11 +167,25 @@ export default function InstructorAnalytics({
         <span className="text-foreground">Analytics</span>
       </nav>
 
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Analytics</h1>
-        <p className="mt-1 text-muted-foreground">
-          Revenue and earnings for your courses.
-        </p>
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Analytics</h1>
+          <p className="mt-1 text-muted-foreground">
+            Revenue and earnings for your courses.
+          </p>
+        </div>
+        <Select value={range} onValueChange={handleRangeChange}>
+          <SelectTrigger className="w-40" aria-label="Date range">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DATE_RANGES.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="grid gap-6 sm:grid-cols-3">
