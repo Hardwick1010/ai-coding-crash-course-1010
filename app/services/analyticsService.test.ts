@@ -131,6 +131,37 @@ describe("analyticsService", () => {
       expect(revenue.purchaseCount).toBe(3);
     });
 
+    it("includes a purchase made exactly at the range start", () => {
+      insertPurchase(base.course.id, 4000, "2026-10-16T12:00:00.000Z");
+
+      const revenue = getInstructorRevenue(base.instructor.id, new Date("2026-10-16T12:00:00.000Z"));
+      expect(revenue.grossRevenue).toBe(4000);
+      expect(revenue.purchaseCount).toBe(1);
+    });
+
+    it("excludes a purchase made just before the range start", () => {
+      insertPurchase(base.course.id, 1000, "2026-10-16T11:59:59.999Z");
+      insertPurchase(base.course.id, 4000, "2026-10-20T09:30:00.000Z");
+
+      expect(getInstructorRevenue(base.instructor.id, new Date("2026-10-16T12:00:00.000Z"))).toEqual({
+        grossRevenue: 4000,
+        platformFee: 800,
+        netEarnings: 3200,
+        purchaseCount: 1,
+      });
+    });
+
+    it("returns zeros when no purchases fall in the range", () => {
+      insertPurchase(base.course.id, 5000, "2026-01-01T00:00:00.000Z");
+
+      expect(getInstructorRevenue(base.instructor.id, new Date("2026-10-16T12:00:00.000Z"))).toEqual({
+        grossRevenue: 0,
+        platformFee: 0,
+        netEarnings: 0,
+        purchaseCount: 0,
+      });
+    });
+
     it("returns every purchase, however old, when no start is given", () => {
       insertPurchase(base.course.id, 1000, "2019-01-01T00:00:00.000Z");
       insertPurchase(base.course.id, 2000, "2024-06-15T12:00:00.000Z");
