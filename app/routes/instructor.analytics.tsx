@@ -1,12 +1,10 @@
-import { Link, data, isRouteErrorResponse, useSearchParams } from "react-router";
+import { Link, isRouteErrorResponse, useSearchParams } from "react-router";
 import type { Route } from "./+types/instructor.analytics";
-import { getCurrentUserId } from "~/lib/session";
-import { getUserById } from "~/services/userService";
+import { requireInstructor } from "~/lib/access.server";
 import {
   getInstructorRevenue,
   PLATFORM_FEE_PERCENT,
 } from "~/services/analyticsService";
-import { UserRole } from "~/db/schema";
 import { Card, CardContent } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Skeleton } from "~/components/ui/skeleton";
@@ -18,7 +16,7 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import { AlertTriangle } from "lucide-react";
-import { cn } from "~/lib/utils";
+import { cn, DAY_MS, formatMoney } from "~/lib/utils";
 
 // ─── Instructor Analytics ───
 // What the instructor's courses have earned: gross revenue, Cadence's platform
@@ -46,19 +44,7 @@ function parseRange(value: string | null): DateRange {
 
 function rangeStart(range: DateRange, now = new Date()): Date | undefined {
   if (range.days === null) return undefined;
-  return new Date(now.getTime() - range.days * 24 * 60 * 60 * 1000);
-}
-
-const usd = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
-/** Cents to "$1,234.56". Zero is "$0.00" — a money figure, never "Free". */
-function formatUsd(cents: number) {
-  return usd.format(cents / 100);
+  return new Date(now.getTime() - range.days * DAY_MS);
 }
 
 export function meta() {
@@ -69,21 +55,10 @@ export function meta() {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const currentUserId = await getCurrentUserId(request);
-
-  if (!currentUserId) {
-    throw data("Select a user from the DevUI panel to view your analytics.", {
-      status: 401,
-    });
-  }
-
-  const user = getUserById(currentUserId);
-
-  if (!user || user.role !== UserRole.Instructor) {
-    throw data("Only instructors can access this page.", {
-      status: 403,
-    });
-  }
+  const { userId: currentUserId } = await requireInstructor(
+    request,
+    "Select a user from the DevUI panel to view your analytics."
+  );
 
   const range = parseRange(new URL(request.url).searchParams.get("range"));
 
@@ -191,19 +166,19 @@ export default function InstructorAnalytics({
       <div className="grid gap-6 sm:grid-cols-3">
         <MoneyCard
           label="Gross revenue"
-          amount={formatUsd(revenue.grossRevenue)}
+          amount={formatMoney(revenue.grossRevenue)}
           helper={`What students paid, across ${revenue.purchaseCount} ${
             revenue.purchaseCount === 1 ? "purchase" : "purchases"
           }.`}
         />
         <MoneyCard
           label={`Platform fee (${PLATFORM_FEE_PERCENT}%)`}
-          amount={formatUsd(revenue.platformFee)}
+          amount={formatMoney(revenue.platformFee)}
           helper="Cadence's cut. Already deducted from your earnings."
         />
         <MoneyCard
           label="Your net earnings"
-          amount={formatUsd(revenue.netEarnings)}
+          amount={formatMoney(revenue.netEarnings)}
           helper="What you keep — gross revenue minus the platform fee."
           emphasised
         />

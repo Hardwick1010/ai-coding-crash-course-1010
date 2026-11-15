@@ -10,7 +10,7 @@ import { courses, purchases } from "~/db/schema";
 
 /** The percent Cadence keeps, as shown in the "Platform fee (20%)" card label. */
 export const PLATFORM_FEE_PERCENT = 20;
-export const PLATFORM_FEE_RATE = PLATFORM_FEE_PERCENT / 100;
+const PLATFORM_FEE_RATE = PLATFORM_FEE_PERCENT / 100;
 
 export type InstructorRevenue = {
   grossRevenue: number;

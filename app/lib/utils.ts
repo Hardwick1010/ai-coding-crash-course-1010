@@ -14,10 +14,28 @@ export function formatPrice(cents: number | null | undefined): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
+const usd = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/**
+ * Format an amount in cents as "$1,234.56". Unlike formatPrice, zero is
+ * "$0.00" — use this for money figures, not prices that may be free.
+ */
+export function formatMoney(cents: number): string {
+  return usd.format(cents / 100);
+}
+
+/** Milliseconds in one day. */
+export const DAY_MS = 86_400_000;
+
 /** Whole days between an ISO timestamp and now. Negative values clamp to 0. */
 export function daysSince(iso: string): number {
   const elapsed = Date.now() - new Date(iso).getTime();
-  return Math.max(0, Math.floor(elapsed / 86_400_000));
+  return Math.max(0, Math.floor(elapsed / DAY_MS));
 }
 
 /**

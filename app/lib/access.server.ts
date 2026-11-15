@@ -150,6 +150,29 @@ export async function requireStaff(
 }
 
 /**
+ * Throws 401 when signed out (with `signedOutMessage`, so each page can say what
+ * the user was trying to see) and 403 unless the user is an instructor. Admins
+ * are rejected too — for instructor-only pages such as My Courses and Analytics.
+ */
+export async function requireInstructor(
+  request: Request,
+  signedOutMessage = "Select a user from the DevUI panel."
+) {
+  const userId = await getCurrentUserId(request);
+  if (!userId) {
+    throw data(signedOutMessage, { status: 401 });
+  }
+
+  const user = getUserById(userId);
+
+  if (!user || user.role !== UserRole.Instructor) {
+    throw data("Only instructors can access this page.", { status: 403 });
+  }
+
+  return { userId, user };
+}
+
+/**
  * Throws unless the user is an instructor or an admin, without tying them to a
  * particular course — for pages that span all of someone's courses.
  */

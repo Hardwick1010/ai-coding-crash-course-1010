@@ -2,15 +2,14 @@ import { Link } from "react-router";
 import type { Route } from "./+types/instructor";
 import { getCoursesByInstructor, getLessonCountForCourse } from "~/services/courseService";
 import { getEnrollmentCountForCourse } from "~/services/enrollmentService";
-import { getCurrentUserId } from "~/lib/session";
-import { getUserById } from "~/services/userService";
+import { requireInstructor } from "~/lib/access.server";
 import { Card, CardContent, CardFooter, CardHeader } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Skeleton } from "~/components/ui/skeleton";
 import { AlertTriangle, BookOpen, GraduationCap, Plus, Users } from "lucide-react";
 import { CourseImage } from "~/components/course-image";
-import { data, isRouteErrorResponse } from "react-router";
-import { CourseStatus, UserRole } from "~/db/schema";
+import { isRouteErrorResponse } from "react-router";
+import { CourseStatus } from "~/db/schema";
 
 export function meta() {
   return [
@@ -20,21 +19,10 @@ export function meta() {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const currentUserId = await getCurrentUserId(request);
-
-  if (!currentUserId) {
-    throw data("Select a user from the DevUI panel to view your courses.", {
-      status: 401,
-    });
-  }
-
-  const user = getUserById(currentUserId);
-
-  if (!user || user.role !== UserRole.Instructor) {
-    throw data("Only instructors can access this page.", {
-      status: 403,
-    });
-  }
+  const { userId: currentUserId } = await requireInstructor(
+    request,
+    "Select a user from the DevUI panel to view your courses."
+  );
 
   const instructorCourses = getCoursesByInstructor(currentUserId);
 
