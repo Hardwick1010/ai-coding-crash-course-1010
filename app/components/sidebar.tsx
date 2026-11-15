@@ -47,6 +47,8 @@ interface NavItem {
   to: string;
   icon: React.ReactNode;
   roles: UserRole[] | "all";
+  /** Active only on this exact path, not on paths nested under it. */
+  end?: boolean;
 }
 
 const navItems: NavItem[] = [
@@ -67,6 +69,7 @@ const navItems: NavItem[] = [
     to: "/instructor",
     icon: <GraduationCap className="size-4" />,
     roles: [UserRole.Instructor],
+    end: true,
   },
   {
     label: "Analytics",
@@ -142,6 +145,7 @@ export function Sidebar({
             <NavLink
               key={item.to}
               to={item.to}
+              end={item.end}
               className={({ isActive }) =>
                 cn(
                   "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
